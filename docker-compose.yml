@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: mall-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: mall_db
+      MYSQL_USER: ezmall
+      MYSQL_PASSWORD: ezmallpassword
+      MYSQL_TCP_PORT: 3307
+    ports:
+      - "3307:3307"
+    expose:
+      - 3307
+    networks:
+      - mall-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      
+  backend:
+    build:
+      context: ./backend  # 指定後端 Spring Boot 的目錄
+      dockerfile: Dockerfile  # 正確的 Dockerfile 位置
+    container_name: mall-backend
+    restart: always
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://db:3307/mall_db?useSSL=false&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: ezmall
+      SPRING_DATASOURCE_PASSWORD: ezmallpassword
+      SPRING_REDIS_HOST: redis
+      SPRING_REDIS_PORT: 6379
+    ports:
+      - "8080:8080"  # 本機 8080 -> 容器 8080
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - mall-network
+
+  redis:
+    image: redis:latest
+    container_name: mall-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    networks:
+      - mall-network
+
+networks:
+  mall-network:
+    driver: bridge
